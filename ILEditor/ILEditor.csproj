@@ -91,6 +91,7 @@
     <Reference Include="FluentFTP, Version=19.1.2.0, Culture=neutral, PublicKeyToken=f4af092b1d8df44f, processorArchitecture=MSIL">
       <HintPath>..\packages\FluentFTP.19.1.2\lib\net45\FluentFTP.dll</HintPath>
     </Reference>
+    <Reference Include="IBM.Data.DB2.iSeries, Version=12.0.0.0, Culture=neutral, PublicKeyToken=9cdb2ebfb1f93a26, processorArchitecture=MSIL" />
     <Reference Include="ICSharpCode.AvalonEdit, Version=5.0.3.0, Culture=neutral, PublicKeyToken=9cc39be672370310, processorArchitecture=MSIL">
       <HintPath>..\packages\AvalonEdit.5.0.4\lib\Net40\ICSharpCode.AvalonEdit.dll</HintPath>
     </Reference>
@@ -308,6 +309,8 @@
     <Compile Include="Forms\UpdateProgram.Designer.cs">
       <DependentUpon>UpdateProgram.cs</DependentUpon>
     </Compile>
+    <Compile Include="Classes\IBMiODBC.cs" />
+    <Compile Include="Classes\IBMiUtilsODBC.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -623,6 +626,9 @@
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Connected Services\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
