@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
+using System.Windows.Forms;
+using System.Timers;
 using IBM.Data.DB2.iSeries;
 
 namespace ILEditor.Classes
@@ -14,28 +17,84 @@ namespace ILEditor.Classes
 
         public static bool Connect(bool OfflineMode = false, string promptedPassword = "")
         {
-            Client = new iDB2Connection();
-            string passWord = "";
+            string[] remoteSystem;
+            bool result = false;
 
-            if (promptedPassword == "")
-                passWord = Password.Decode(CurrentSystem.GetValue("password"));
-            else
-                passWord = promptedPassword;
+            try
+            {
+                Client = new iDB2Connection();
+                string passWord = "";
+                remoteSystem = CurrentSystem.GetValue("system").Split(':');
 
-            iDB2ConnectionStringBuilder csBuilder = new iDB2ConnectionStringBuilder();
-            csBuilder.Add("DATASOURCE", CurrentSystem.GetValue("datasource"));
-            csBuilder.Add("DEFAULTCOLLECTION", "qtemp");
-            csBuilder.Add("USERID", CurrentSystem.GetValue("username"));
-            csBuilder.Add("PASSWORD", passWord);
-            csBuilder.Add("CONNECTIONTIMEOUT", "5");
+                if (promptedPassword == "")
+                    passWord = Password.Decode(CurrentSystem.GetValue("password"));
+                else
+                    passWord = promptedPassword;
 
-            Client.ConnectionString = csBuilder.ConnectionString;
-            Client.Open();
+                iDB2ConnectionStringBuilder csBuilder = new iDB2ConnectionStringBuilder();
+                csBuilder.Add("DATASOURCE", remoteSystem[0]);
+                csBuilder.Add("DEFAULTCOLLECTION", "qtemp");
+                csBuilder.Add("USERID", CurrentSystem.GetValue("username"));
+                csBuilder.Add("PASSWORD", passWord);
+                csBuilder.Add("CONNECTIONTIMEOUT", "5");
+
+                Client.ConnectionString = csBuilder.ConnectionString;
+                Client.Open();
+
+                //Change the user library list on connection
+                RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })");
+                result = IsConnected();
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show("Unable to connect to " + CurrentSystem.GetValue("system") + " - " + e.Message, "Cannot Connect", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return result;
+        }
+
+        private static bool IsConnected()
+        {
+            bool result = false;
 
             if (Client.State.ToString() == "Open")
-                return true;
+                result = true;
+
+            return result;
+        }
+
+        public static void Disconnect()
+        {
+            if (IsConnected())
+                Client.Close();
+        }
+
+        public static string GetSystem()
+        {
+            if (Client != null)
+                if (IsConnected())
+                    return Client.ServerVersion;
+                else
+                    return "";
+
             else
-                return false;
+                return "";
+
+        }
+
+        public static bool DownloadFile(string Local, string Remote)
+        {
+            bool Result = false;
+            try
+            {
+
+            }
+            catch (Exception e)
+            {
+
+            }
+
+            return Result;
         }
 
         // ------------------------------------------------------------
