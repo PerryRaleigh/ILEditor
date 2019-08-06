@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,6 +7,10 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Timers;
+//-------------------------------------------------------------------
+// The documentation on how to add the IBM i ODBC packages is here
+// https://www-01.ibm.com/support/docview.wss?uid=nas8N1022304
+//-------------------------------------------------------------------
 using IBM.Data.DB2.iSeries;
 
 namespace ILEditor.Classes
@@ -19,7 +24,7 @@ namespace ILEditor.Classes
         {
             string[] remoteSystem;
             bool result = false;
-
+            
             try
             {
                 Client = new iDB2Connection();
@@ -82,11 +87,29 @@ namespace ILEditor.Classes
 
         }
 
-        public static bool DownloadFile(string Local, string Remote)
+        public static bool DownloadFile(string Local, string Lib, string Obj, string Mbr)
         {
+            // List of commands.
+            Dictionary<string, string> cmdList = new Dictionary<string, string>();
+
+            // Command to copye the source file and selected member to QTEMP
+            cmdList.Add("CPYMBR", "CPYF FROMFILE(" + Lib + "/" + Obj + ") TOFILE(QTEMP/" + Obj + ") " +
+                    "FROMMBR(" + Mbr + ") TOMBR(" + Mbr + ") CRTFILE(*YES)");
+
+            // SQL to select the rows from a source member
+            cmdList.Add("SQLSRCMBR", "SELECT * FROM " + Obj);
+
+            // Command to override the source file to QTEMP
+            cmdList.Add("OVRDBF", "OVRDBF FILE(" + Obj + ") TOFILE(QTEMP/" + Obj + 
+                    ") MBR(" + Mbr + ")");
+
             bool Result = false;
             try
             {
+                if (IsConnected())
+                    return false;
+                else
+                    return true; //error
 
             }
             catch (Exception e)
