@@ -17,8 +17,8 @@ namespace ILEditor.Classes
 {
     class IBMiODBC
     {
-        public static Config CurrentSystem;
         private static iDB2Connection Client = null;
+        public static Config CurrentSystem = IBMi.CurrentSystem;
 
         public static bool Connect(bool OfflineMode = false, string promptedPassword = "")
         {
@@ -92,7 +92,7 @@ namespace ILEditor.Classes
             // List of commands.
             Dictionary<string, string> cmdList = new Dictionary<string, string>();
 
-            // Command to copye the source file and selected member to QTEMP
+            // Command to copy the source file and selected member to QTEMP
             cmdList.Add("CPYMBR", "CPYF FROMFILE(" + Lib + "/" + Obj + ") TOFILE(QTEMP/" + Obj + ") " +
                     "FROMMBR(" + Mbr + ") TOMBR(" + Mbr + ") CRTFILE(*YES)");
 
@@ -114,7 +114,10 @@ namespace ILEditor.Classes
             }
             catch (Exception e)
             {
-
+                if (e.Data == null)
+                {
+                    return true; //error
+                }
             }
 
             return Result;

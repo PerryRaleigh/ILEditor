@@ -14,7 +14,7 @@ namespace ILEditor.Classes
     class IBMi
     {
         public static Config CurrentSystem;
-        private static FtpClient Client;
+        private static FtpClient ClientFTP;
 
         public readonly static Dictionary<string, string> FTPCodeMessages = new Dictionary<string, string>()
         {
@@ -77,8 +77,8 @@ namespace ILEditor.Classes
 
         public static bool IsConnected()
         {
-            if (Client != null)
-                return Client.IsConnected;
+            if (ClientFTP != null)
+                return ClientFTP.IsConnected;
             else
                 return false;
         }
@@ -104,26 +104,26 @@ namespace ILEditor.Classes
                 else
                     password = promptedPassword;
 
-                Client = new FtpClient(remoteSystem[0], CurrentSystem.GetValue("username"), password);
+                ClientFTP = new FtpClient(remoteSystem[0], CurrentSystem.GetValue("username"), password);
 
                 if (OfflineMode == false)
                 {
-                    Client.UploadDataType = FtpDataType.ASCII;
-                    Client.DownloadDataType = FtpDataType.ASCII;
+                    ClientFTP.UploadDataType = FtpDataType.ASCII;
+                    ClientFTP.DownloadDataType = FtpDataType.ASCII;
 
                     //FTPES is configurable
                     if (IBMi.CurrentSystem.GetValue("useFTPES") == "true")
-                        Client.EncryptionMode = FtpEncryptionMode.Explicit;
+                        ClientFTP.EncryptionMode = FtpEncryptionMode.Explicit;
 
                     //Client.DataConnectionType = FtpDataConnectionType.AutoPassive; //THIS IS THE DEFAULT VALUE
-                    Client.DataConnectionType = GetFtpDataConnectionType(CurrentSystem.GetValue("transferMode"));
-                    Client.SocketKeepAlive = true;
+                    ClientFTP.DataConnectionType = GetFtpDataConnectionType(CurrentSystem.GetValue("transferMode"));
+                    ClientFTP.SocketKeepAlive = true;
 
                     if (remoteSystem.Length == 2)
-                        Client.Port = int.Parse(remoteSystem[1]);
+                        ClientFTP.Port = int.Parse(remoteSystem[1]);
 
-                    Client.ConnectTimeout = 5000;
-                    Client.Connect();
+                    ClientFTP.ConnectTimeout = 5000;
+                    ClientFTP.Connect();
 
                     //Change the user library list on connection
                     RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })");
@@ -146,19 +146,19 @@ namespace ILEditor.Classes
 
         public static void Disconnect()
         {
-            if (Client.IsConnected)
+            if (ClientFTP.IsConnected)
             {
-                Client.Disconnect();
+                ClientFTP.Disconnect();
             }
         }
 
         private static void KeepAliveFunc(object sender, ElapsedEventArgs e)
         {
-            bool showError = !Client.IsConnected;
-            if (Client.IsConnected)
+            bool showError = !ClientFTP.IsConnected;
+            if (ClientFTP.IsConnected)
             {
                 try {
-                    Client.Execute("NOOP");
+                    ClientFTP.Execute("NOOP");
                     showError = false;
                 }
                 catch
@@ -173,9 +173,9 @@ namespace ILEditor.Classes
 
         public static string GetSystem()
         {
-            if (Client != null)
-                if (Client.IsConnected)
-                    return Client.SystemType;
+            if (ClientFTP != null)
+                if (ClientFTP.IsConnected)
+                    return ClientFTP.SystemType;
                 else
                     return "";
             else
@@ -188,8 +188,8 @@ namespace ILEditor.Classes
             bool Result = false;
             try
             {
-                if (Client.IsConnected)
-                    Result = !Client.DownloadFile(Local, Remote, true);
+                if (ClientFTP.IsConnected)
+                    Result = !ClientFTP.DownloadFile(Local, Remote, true);
                 else
                     return true; //error
             }
@@ -209,8 +209,8 @@ namespace ILEditor.Classes
         //Returns true if successful
         public static bool UploadFile(string Local, string Remote)
         {
-            if (Client.IsConnected)
-                return Client.UploadFile(Local, Remote, FtpExists.Overwrite);
+            if (ClientFTP.IsConnected)
+                return ClientFTP.UploadFile(Local, Remote, FtpExists.Overwrite);
             else
                 return false;
         }
@@ -218,11 +218,11 @@ namespace ILEditor.Classes
         //Returns true if successful
         public static bool RemoteCommand(string Command, bool ShowError = true)
         {
-            if (Client.IsConnected)
+            if (ClientFTP.IsConnected)
             {
                 string inputCmd = "RCMD " + Command;
                 //IF THIS CRASHES CLIENT DISCONNECTS!!!
-                FtpReply reply = Client.Execute(inputCmd);
+                FtpReply reply = ClientFTP.Execute(inputCmd);
 
                 if (ShowError)
                     HandleError(reply.Code, reply.ErrorMessage);
@@ -237,10 +237,10 @@ namespace ILEditor.Classes
 
         public static string RemoteCommandResponse(string Command)
         {
-            if (Client.IsConnected)
+            if (ClientFTP.IsConnected)
             {
                 string inputCmd = "RCMD " + Command;
-                FtpReply reply = Client.Execute(inputCmd);
+                FtpReply reply = ClientFTP.Execute(inputCmd);
 
                 if (reply.Success)
                     return "";
@@ -257,7 +257,7 @@ namespace ILEditor.Classes
         public static bool RunCommands(string[] Commands)
         {
             bool result = true;
-            if (Client.IsConnected)
+            if (ClientFTP.IsConnected)
             {
                 foreach (string Command in Commands)
                 {
@@ -275,13 +275,13 @@ namespace ILEditor.Classes
 
         public static bool FileExists(string remoteFile)
         {
-            return Client.FileExists(remoteFile);
+            return ClientFTP.FileExists(remoteFile);
         }
         public static bool DirExists(string remoteDir)
         {
             try
             {
-                return Client.DirectoryExists(remoteDir);
+                return ClientFTP.DirectoryExists(remoteDir);
             }
             catch (Exception ex)
             {
@@ -291,7 +291,7 @@ namespace ILEditor.Classes
         }
         public static FtpListItem[] GetListing(string remoteDir)
         {
-            return Client.GetListing(remoteDir);
+            return ClientFTP.GetListing(remoteDir);
         }
 
         public static string RenameDir(string remoteDir, string newName)
@@ -300,7 +300,7 @@ namespace ILEditor.Classes
             pieces[pieces.Length - 1] = newName;
             newName = String.Join("/", pieces);
 
-            if (Client.MoveDirectory(remoteDir, String.Join("/", pieces)))
+            if (ClientFTP.MoveDirectory(remoteDir, String.Join("/", pieces)))
                 return newName;
             else
                 return remoteDir;
@@ -311,7 +311,7 @@ namespace ILEditor.Classes
             pieces[pieces.Length - 1] = newName;
             newName = String.Join("/", pieces);
 
-            if (Client.MoveFile(remoteFile, newName))
+            if (ClientFTP.MoveFile(remoteFile, newName))
                 return newName;
             else
                 return remoteFile;
@@ -319,25 +319,25 @@ namespace ILEditor.Classes
 
         public static void DeleteDir(string remoteDir)
         {
-            Client.DeleteDirectory(remoteDir, FtpListOption.AllFiles);
+            ClientFTP.DeleteDirectory(remoteDir, FtpListOption.AllFiles);
         }
 
         public static void DeleteFile(string remoteFile)
         {
-            Client.DeleteFile(remoteFile);
+            ClientFTP.DeleteFile(remoteFile);
         }
 
         public static void SetWorkingDir(string RemoteDir)
         {
-            Client.SetWorkingDirectory(RemoteDir);
+            ClientFTP.SetWorkingDirectory(RemoteDir);
         }
         public static void CreateDirecory(string RemoteDir)
         {
-            Client.CreateDirectory(RemoteDir);
+            ClientFTP.CreateDirectory(RemoteDir);
         }
         public static void UploadFiles(string RemoteDir, string[] Files)
         {
-            Client.UploadFiles(Files, RemoteDir, FtpExists.Overwrite, true);
+            ClientFTP.UploadFiles(Files, RemoteDir, FtpExists.Overwrite, true);
         }
     }
 }
