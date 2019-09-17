@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using FluentFTP;
 using System.Net.Sockets;
 using System.Timers;
+using IBM.Data.DB2.iSeries;
 
 namespace ILEditor.Classes
 {
@@ -15,6 +16,7 @@ namespace ILEditor.Classes
     {
         public static Config CurrentSystem;
         private static FtpClient ClientFTP;
+        private static iDB2Connection ClientODBC = null;
 
         public readonly static Dictionary<string, string> FTPCodeMessages = new Dictionary<string, string>()
         {
@@ -77,34 +79,62 @@ namespace ILEditor.Classes
 
         public static bool IsConnected()
         {
+            bool result = false;
+
+            if (ClientODBC.State.ToString() == "Open")
+                result = true;
+
             if (ClientFTP != null)
-                return ClientFTP.IsConnected;
-            else
-                return false;
+                result = ClientFTP.IsConnected;
+
+            return result;
         }
         public static string FTPFile = "";
         public static bool Connect(bool OfflineMode = false, string promptedPassword = "")
         {
-            string[] remoteSystem;
+            string[] remoteSysFTP;
+            string[] rmtSystemODBC;
             bool result = false;
+
+            // Establish an ODBC connection
             try
             {
+                ClientODBC = new iDB2Connection();
+                string passWord = "";
+                rmtSystemODBC = CurrentSystem.GetValue("system").Split(':');
+
+                if (promptedPassword == "")
+                    passWord = Password.Decode(CurrentSystem.GetValue("password"));
+                else
+                    passWord = promptedPassword;
+
+                iDB2ConnectionStringBuilder csBuilder = new iDB2ConnectionStringBuilder();
+                csBuilder.Add("DATASOURCE", rmtSystemODBC[0]);
+                csBuilder.Add("DEFAULTCOLLECTION", "qtemp");
+                csBuilder.Add("USERID", CurrentSystem.GetValue("username"));
+                csBuilder.Add("PASSWORD", passWord);
+                csBuilder.Add("CONNECTIONTIMEOUT", "5");
+
+                ClientODBC.ConnectionString = csBuilder.ConnectionString;
+                ClientODBC.Open();
+
+                // Establish a FTP connection
                 FTPFile = IBMiUtils.GetLocalFile("QTEMP", "FTPLOG", DateTime.Now.ToString("MMddTHHmm"), "txt");
                 FtpTrace.AddListener(new TextWriterTraceListener(FTPFile));
                 FtpTrace.LogUserName = false;   // hide FTP user names
                 FtpTrace.LogPassword = false;   // hide FTP passwords
-                FtpTrace.LogIP = false; 	// hide FTP server IP addresses
+                FtpTrace.LogIP = false;     // hide FTP server IP addresses
 
                 string password = "";
 
-                remoteSystem = CurrentSystem.GetValue("system").Split(':');
+                remoteSysFTP = CurrentSystem.GetValue("system").Split(':');
 
                 if (promptedPassword == "")
                     password = Password.Decode(CurrentSystem.GetValue("password"));
                 else
                     password = promptedPassword;
 
-                ClientFTP = new FtpClient(remoteSystem[0], CurrentSystem.GetValue("username"), password);
+                ClientFTP = new FtpClient(remoteSysFTP[0], CurrentSystem.GetValue("username"), password);
 
                 if (OfflineMode == false)
                 {
@@ -119,14 +149,11 @@ namespace ILEditor.Classes
                     ClientFTP.DataConnectionType = GetFtpDataConnectionType(CurrentSystem.GetValue("transferMode"));
                     ClientFTP.SocketKeepAlive = true;
 
-                    if (remoteSystem.Length == 2)
-                        ClientFTP.Port = int.Parse(remoteSystem[1]);
+                    if (remoteSysFTP.Length == 2)
+                        ClientFTP.Port = int.Parse(remoteSysFTP[1]);
 
                     ClientFTP.ConnectTimeout = 5000;
                     ClientFTP.Connect();
-
-                    //Change the user library list on connection
-                    RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })");
 
                     System.Timers.Timer timer = new System.Timers.Timer();
                     timer.Interval = 60000;
@@ -141,13 +168,16 @@ namespace ILEditor.Classes
                 MessageBox.Show("Unable to connect to " + CurrentSystem.GetValue("system") + " - " + e.Message, "Cannot Connect", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
+            //Change the user library list on connection
+            RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })");
             return result;
         }
 
         public static void Disconnect()
         {
-            if (ClientFTP.IsConnected)
-            {
+            if (IsConnected())
+            { 
+                ClientODBC.Close();
                 ClientFTP.Disconnect();
             }
         }
@@ -181,6 +211,64 @@ namespace ILEditor.Classes
             else
                 return "";
         }
+
+        //Returns false if successful
+        public static bool DownloadFile(string Local, string Lib, string Obj, string Mbr)
+        {
+            // List of commands.
+            Dictionary<string, string> cmdList = new Dictionary<string, string>();
+            string srcData;
+
+            // Command to copy the source file and selected member to QTEMP
+            cmdList.Add("CPYMBR", "CPYF FROMFILE(" + Lib + "/" + Obj + ") TOFILE(QTEMP/" + Obj + ") " +
+                    "FROMMBR(" + Mbr + ") TOMBR(" + Mbr + ") CRTFILE(*YES)");
+            // SQL to select the rows from a source member
+            cmdList.Add("SQLSRCMBR", "SELECT * FROM " + Obj);
+            // Command to override the source file to QTEMP
+            cmdList.Add("OVRDBF", "OVRDBF FILE(" + Obj + ") TOFILE(QTEMP/" + Obj +
+                    ") MBR(" + Mbr + ")");
+
+            bool Result = false;
+            try
+            {
+                // Check if the local file already exists. If yes, delete it. 
+                if (File.Exists(Local))
+                {
+                    File.Delete(Local);
+                }
+
+                using (iDB2Command cmd = new iDB2Command(cmdList["SQLSRCMBR"], ClientODBC))
+                {
+                    // Execute the command, and get a DataReader in return.
+                    iDB2DataReader dr = cmd.ExecuteReader();
+
+                    if (IsConnected())
+                    {
+                        using (StreamWriter sw = File.CreateText(Local))
+                        {
+                            // Read each row from the table and display the information.
+                            while (dr.Read())
+                            {
+                                srcData = dr.GetString(2);
+                                sw.WriteLine(srcData);
+                            }
+                        }
+                        Result = false;
+                    }
+                    else
+                        Result = true; //error
+                }
+            }
+            catch (Exception e)
+            {
+                if (e.Data == null)
+                {
+                    return true; //error
+                }
+            }
+            return Result;
+        }
+
 
         //Returns false if successful
         public static bool DownloadFile(string Local, string Remote)

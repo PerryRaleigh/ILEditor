@@ -17,7 +17,7 @@ namespace ILEditor.Classes
 {
     class IBMiODBC
     {
-        private static iDB2Connection Client = null;
+        private static iDB2Connection ClientODBC = null;
         public static Config CurrentSystem = IBMi.CurrentSystem;
 
         public static bool Connect(bool OfflineMode = false, string promptedPassword = "")
@@ -27,7 +27,7 @@ namespace ILEditor.Classes
             
             try
             {
-                Client = new iDB2Connection();
+                ClientODBC = new iDB2Connection();
                 string passWord = "";
                 remoteSystem = CurrentSystem.GetValue("system").Split(':');
 
@@ -43,8 +43,8 @@ namespace ILEditor.Classes
                 csBuilder.Add("PASSWORD", passWord);
                 csBuilder.Add("CONNECTIONTIMEOUT", "5");
 
-                Client.ConnectionString = csBuilder.ConnectionString;
-                Client.Open();
+                ClientODBC.ConnectionString = csBuilder.ConnectionString;
+                ClientODBC.Open();
 
                 //Change the user library list on connection
                 RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })");
@@ -62,7 +62,7 @@ namespace ILEditor.Classes
         {
             bool result = false;
 
-            if (Client.State.ToString() == "Open")
+            if (ClientODBC.State.ToString() == "Open")
                 result = true;
 
             return result;
@@ -71,14 +71,14 @@ namespace ILEditor.Classes
         public static void Disconnect()
         {
             if (IsConnected())
-                Client.Close();
+                ClientODBC.Close();
         }
 
         public static string GetSystem()
         {
-            if (Client != null)
+            if (ClientODBC != null)
                 if (IsConnected())
-                    return Client.ServerVersion;
+                    return ClientODBC.ServerVersion;
                 else
                     return "";
 
@@ -132,7 +132,7 @@ namespace ILEditor.Classes
         public static bool RemoteCommand(string cmdText, bool ShowError = true)
         {
 
-            if (Client.State.ToString() == "Open")
+            if (ClientODBC.State.ToString() == "Open")
             {
 
                 bool response = true;
@@ -150,7 +150,7 @@ namespace ILEditor.Classes
                 + cmdText.Length.ToString("0000000000.00000")
                 + ")";
                 // Create a command obj to execute the program or command.
-                iDB2Command cmd = new iDB2Command(pgmParm, Client);
+                iDB2Command cmd = new iDB2Command(pgmParm, ClientODBC);
                 try
                 {
                     cmd.ExecuteNonQuery();

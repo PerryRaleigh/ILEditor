@@ -476,7 +476,7 @@ namespace ILEditor.Classes
                                     {
                                         UsingQTEMPFiles(new[] { "JOBLOG" });
                                         IBMi.RemoteCommand("RUNSQL SQL('CREATE TABLE QTEMP/JOBLOG AS (SELECT char(MESSAGE_TEXT) as a FROM TABLE(QSYS2.JOBLOG_INFO(''*'')) A WHERE MESSAGE_TYPE = ''DIAGNOSTIC'') WITH DATA') COMMIT(*NONE)");
-                                        IBMi.DownloadFile(filetemp, "/QSYS.lib/QTEMP.lib/JOBLOG.file/JOBLOG.mbr");
+                                        IBMi.DownloadFile(filetemp, "QTEMP.lib", "JOBLOG.file", "JOBLOG.mbr");
                                     }
                                 }
                                 else
@@ -612,7 +612,7 @@ namespace ILEditor.Classes
 
             if (IBMi.IsConnected())
             {
-                if (IBMi.DownloadFile(filetemp, "/QSYS.lib/" + Lib + ".lib/" + Obj + ".file/" + Mbr + ".mbr") == false)
+                if (IBMi.DownloadFile(filetemp, Lib, Obj, Mbr) == false)
                     return filetemp;
                 else
                     return "";
