@@ -117,6 +117,7 @@ namespace ILEditor.Classes
 
                 ClientODBC.ConnectionString = csBuilder.ConnectionString;
                 ClientODBC.Open();
+                RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })");
 
                 // Establish a FTP connection
                 FTPFile = IBMiUtils.GetLocalFile("QTEMP", "FTPLOG", DateTime.Now.ToString("MMddTHHmm"), "txt");
@@ -160,7 +161,7 @@ namespace ILEditor.Classes
                     timer.Elapsed += new ElapsedEventHandler(KeepAliveFunc);
                     timer.Start();
                 }
-
+                RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })", true);
                 result = true;
             }
             catch (Exception e)
@@ -169,7 +170,6 @@ namespace ILEditor.Classes
             }
 
             //Change the user library list on connection
-            RemoteCommand($"CHGLIBL LIBL({ CurrentSystem.GetValue("datalibl").Replace(',', ' ')}) CURLIB({ CurrentSystem.GetValue("curlib") })");
             return result;
         }
 
@@ -219,13 +219,10 @@ namespace ILEditor.Classes
             Dictionary<string, string> cmdList = new Dictionary<string, string>();
             string srcData;
 
-            // Command to copy the source file and selected member to QTEMP
-            cmdList.Add("CPYMBR", "CPYF FROMFILE(" + Lib + "/" + Obj + ") TOFILE(QTEMP/" + Obj + ") " +
-                    "FROMMBR(" + Mbr + ") TOMBR(" + Mbr + ") CRTFILE(*YES)");
             // SQL to select the rows from a source member
-            cmdList.Add("SQLSRCMBR", "SELECT * FROM " + Obj);
+            cmdList.Add("SQLSRCMBR", "SELECT * FROM " + Lib + "." + Obj);
             // Command to override the source file to QTEMP
-            cmdList.Add("OVRDBF", "OVRDBF FILE(" + Obj + ") TOFILE(QTEMP/" + Obj +
+            cmdList.Add("OVRDBF", "OVRDBF FILE(" + Obj + ") TOFILE(" + Lib + "/" + Obj +
                     ") MBR(" + Mbr + ")");
 
             bool Result = false;
@@ -236,6 +233,8 @@ namespace ILEditor.Classes
                 {
                     File.Delete(Local);
                 }
+
+                RemoteCommand(cmdList["OVRDBF"]);
 
                 using (iDB2Command cmd = new iDB2Command(cmdList["SQLSRCMBR"], ClientODBC))
                 {
@@ -295,12 +294,80 @@ namespace ILEditor.Classes
         }
 
         //Returns true if successful
+        public static bool UploadFile(string Local, string Lib, string Obj, string Mbr)
+        {
+            if (ClientODBC.State.ToString() == "Open")
+            {
+                // List of commands.
+                Dictionary<string, string> cmdList = new Dictionary<string, string>();
+
+                // SQL to select the rows from a source member
+                cmdList.Add("SQLSRCMBR", "SELECT * FROM " + Lib + "." + Obj);
+                // Command to override the source file to QTEMP
+                cmdList.Add("OVRDBF", "OVRDBF FILE(" + Obj + ") TOFILE(" + Lib + "/" + Obj +
+                    ") MBR(" + Mbr + ")");
+
+                return true;
+            }
+            else
+                return false;
+        }
+
+        //Returns true if successful
         public static bool UploadFile(string Local, string Remote)
         {
             if (ClientFTP.IsConnected)
                 return ClientFTP.UploadFile(Local, Remote, FtpExists.Overwrite);
             else
                 return false;
+        }
+
+        // ------------------------------------------------------------
+        // Run a command on IBMi using QCMDEXC
+        // cmdText is the command to be executed
+        // Client is an open iDB2Connection the command will be run on
+        // Returns true if successful
+        // ------------------------------------------------------------
+        public static bool RemoteCommand(string cmdText)
+        {
+            if (ClientODBC.State.ToString() == "Open")
+            {
+
+                bool response = true;
+
+                // ------------------------------------------------------------
+                // Construct a string containing the call to QCMDEXC
+                //
+                // We have to delimit single quote characters in the 
+                // command text with an extra single quote
+                // because QCMDEXC uses single quote characters
+                // ------------------------------------------------------------
+                String pgmParm = "CALL QSYS.QCMDEXC('"
+                + cmdText.Replace("'", "''")
+                + "', "
+                + cmdText.Length.ToString("0000000000.00000")
+                + ")";
+                // Create a command obj to execute the program or command.
+                iDB2Command cmd = new iDB2Command(pgmParm, ClientODBC);
+                try
+                {
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception)
+                {
+                    response = false;
+                }
+
+                // Dispose the command since we're done with it.
+                cmd.Dispose();
+
+                // Return the success or failure of the call.
+                return response;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         //Returns true if successful

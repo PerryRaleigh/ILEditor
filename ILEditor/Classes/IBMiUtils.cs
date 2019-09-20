@@ -19,7 +19,7 @@ namespace ILEditor.Classes
         {
             foreach (string Object in Objects) 
                 if (QTEMPListing.Contains(Object))
-                    IBMi.RemoteCommand("DLTOBJ OBJ(QTEMP/" + Object + ") OBJTYPE(*FILE)", false);
+                    IBMi.RemoteCommand("DLTOBJ OBJ(QTEMP/" + Object + ") OBJTYPE(*FILE)");
                 else
                     QTEMPListing.Add(Object);
         }
@@ -102,7 +102,9 @@ namespace ILEditor.Classes
                 UsingQTEMPFiles(new[] { FileA, FileB });
 
                 IBMi.RemoteCommand("DSPOBJD OBJ(" + Lib + "/*ALL) OBJTYPE(" + Types + ") OUTPUT(*OUTFILE) OUTFILE(QTEMP/" + FileA + ")");
-                IBMi.RemoteCommand("RUNSQL SQL('CREATE TABLE QTEMP/" + FileB + " AS (SELECT ODOBNM, ODOBTP, ODOBAT, char(ODOBSZ) as ODOBSZ, ODOBTX, ODOBOW, ODSRCF, ODSRCL, ODSRCM FROM qtemp/" + FileA + " order by ODOBNM) WITH DATA') COMMIT(*NONE)");
+                IBMi.RemoteCommand("RUNSQL SQL('CREATE TABLE QTEMP/" 
+                    + FileB + " AS (SELECT ODOBNM, ODOBTP, ODOBAT, char(ODOBSZ) as ODOBSZ, ODOBTX, ODOBOW, ODSRCF, ODSRCL, ODSRCM FROM qtemp/" 
+                    + FileA + " order by ODOBNM) WITH DATA') COMMIT(*NONE)");
 
                 string file = DownloadMember("QTEMP", FileB, FileB);
 
@@ -586,7 +588,7 @@ namespace ILEditor.Classes
                 string remoteTemp = "/tmp/" + Name + ".spool";
 
                 Editor.TheEditor.SetStatus("Downloading spool file " + Name + "..");
-                IBMi.RemoteCommand("CPYSPLF FILE(" + Name + ") JOB(" + Job + ") SPLNBR(" + Number.ToString() + ") TOFILE(*TOSTMF) TOSTMF('" + remoteTemp + "') STMFOPT(*REPLACE)");
+                IBMi.RemoteCommand("CPYSPLF FILE(" + Name + ") JOB(" + Job + ") SPLNBR(" + Number.ToString() + ") TOFILE(*TOSTMF) TOSTMF('" + remoteTemp + "') STMFOPT(*REPLACE)", false);
 
                 if (!IBMi.DownloadFile(filetemp, remoteTemp))
                 {
@@ -655,7 +657,7 @@ namespace ILEditor.Classes
             Mbr = Mbr.ToUpper();
             
             if (IBMi.IsConnected()) 
-                return IBMi.UploadFile(Local, "/QSYS.lib/" + Lib + ".lib/" + Obj + ".file/" + Mbr + ".mbr");
+                return IBMi.UploadFile(Local, Lib, Obj, Mbr);
             else
             {
                 return true;

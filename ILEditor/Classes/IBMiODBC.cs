@@ -129,9 +129,8 @@ namespace ILEditor.Classes
         // Client is an open iDB2Connection the command will be run on
         // Returns true if successful
         // ------------------------------------------------------------
-        public static bool RemoteCommand(string cmdText, bool ShowError = true)
+        public static bool RemoteCommand(string cmdText)
         {
-
             if (ClientODBC.State.ToString() == "Open")
             {
 
@@ -171,7 +170,5 @@ namespace ILEditor.Classes
                 return false;
             }
         }
-
-
     }
 }

@@ -136,7 +136,7 @@ namespace ILEditor.Classes
                 switch (this.RemoteFS)
                 {
                     case FileSystem.QSYS:
-                        result = IBMi.RemoteCommand("ALCOBJ OBJ((" + this._Lib + "/" + this._Obj + " *FILE *EXCLRD " + this._Mbr + ")) WAIT(1)", false);
+                        result = IBMi.RemoteCommand("ALCOBJ OBJ((" + this._Lib + "/" + this._Obj + " *FILE *EXCLRD " + this._Mbr + ")) WAIT(1)");
 
                         this._isLocked = result;
                         if (result == false)
@@ -159,7 +159,7 @@ namespace ILEditor.Classes
                 switch (this.RemoteFS)
                 {
                     case FileSystem.QSYS:
-                        IBMi.RemoteCommand("DLCOBJ OBJ((" + this._Lib + "/" + this._Obj + " *FILE *EXCLRD " + this._Mbr + "))", false);
+                        IBMi.RemoteCommand("DLCOBJ OBJ((" + this._Lib + "/" + this._Obj + " *FILE *EXCLRD " + this._Mbr + "))");
                         break;
                 }
         }
