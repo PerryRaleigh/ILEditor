@@ -267,8 +267,7 @@ namespace ILEditor.Classes
             }
             return Result;
         }
-
-
+        
         //Returns false if successful
         public static bool DownloadFile(string Local, string Remote)
         {
